@@ -1,27 +1,34 @@
 import "dotenv/config";
+import express, { Request, Response } from "express"; // Request, Response を追加
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "./generated/prisma/client";
 
-// PostgreSQL に接続するためのアダプターを用意する
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter, log: ["query"] });
 
-async function main() {
-  // ユーザーを 1 件追加してみる
-  await prisma.user.create({
-    data: { name: `新しいユーザー ${new Date().toISOString()}` },
-  });
+const app = express();
+const PORT = process.env.PORT || 8888;
 
-  // 全ユーザーを取得して表示する
+app.set("view engine", "ejs");
+app.set("views", "./views");
+app.use(express.urlencoded({ extended: true }));
+
+// 引数の req と res に型を付けるのじゃ
+app.get("/", async (req: Request, res: Response) => {
   const users = await prisma.user.findMany();
-  console.log("ユーザー一覧:", users);
-}
+  res.render("index", { users });
+});
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(() => Promise.all([prisma.$disconnect(), pool.end()]));
+app.post("/users", async (req: Request, res: Response) => {
+  const name = req.body.name;
+  if (name) {
+    await prisma.user.create({ data: { name } });
+  }
+  res.redirect("/");
+});
+
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});
