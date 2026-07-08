@@ -22,11 +22,33 @@ app.get("/", async (req: Request, res: Response) => {
 });
 
 app.post("/users", async (req: Request, res: Response) => {
-  const name = req.body.name;
-  if (name) {
-    await prisma.user.create({ data: { name } });
+  try {
+    const name = req.body.name;
+    const ageStr = req.body.age;
+
+    // 入力が空なら null、文字が入っていれば数値に変換するのじゃ
+    let age: number | null = null;
+    if (ageStr && ageStr.trim() !== "") {
+      age = Number(ageStr);
+    }
+
+    // もし数値への変換に失敗（NaN）したら、エラーとして返すぞ
+    if (age !== null && isNaN(age)) {
+      res.status(400).send("年齢には正しい数値を入力してくだされ。");
+      return;
+    }
+
+    if (name) {
+      // データベースに保存！
+      const newUser = await prisma.user.create({ data: { name, age } });
+      console.log("追加成功:", newUser);
+    }
+    res.redirect("/");
+  } catch (error) {
+    // もしエラーが起きたらログに出すのじゃ
+    console.error("保存エラー:", error);
+    res.status(500).send("データベースへの保存に失敗したようじゃ...");
   }
-  res.redirect("/");
 });
 
 app.listen(PORT, () => {
